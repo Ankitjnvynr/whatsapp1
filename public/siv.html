@@ -34,11 +34,11 @@
     <!-- Form to send text messages -->
     <form id="textMessageForm">
         <h2>Send Text Message</h2>
-        <label for="number">Phone Number (with country code):</label>
-        <input type="text" id="textNumber" placeholder="e.g., 1234567890" required />
+        <label for="textNumbers">Phone Numbers (separate with commas):</label>
+        <input type="text" id="textNumbers" placeholder="e.g., 1234567890, 9876543210" />
         
         <label for="message">Message:</label>
-        <textarea id="textMessage" placeholder="Enter your message here..." required></textarea>
+        <textarea id="textMessage" placeholder="Enter your message here..."></textarea>
         
         <button type="submit">Send Text Message</button>
     </form>
@@ -48,15 +48,15 @@
     <!-- Form to send media files -->
     <form id="mediaForm" enctype="multipart/form-data">
         <h2>Send Media File</h2>
-        <label for="number">Phone Number (with country code):</label>
-        <input type="text" id="mediaNumber" placeholder="e.g., 1234567890" required />
+        <label for="mediaNumbers">Phone Numbers (separate with commas):</label>
+        <input type="text" id="mediaNumbers" placeholder="e.g., 1234567890, 9876543210" />
         
-        <label for="caption">Caption (optional):</label>
+        <label for="mediaCaption">Caption (optional):</label>
         <input type="text" id="mediaCaption" placeholder="Enter a caption for the media file" />
         
         <label for="mediaFile">Select Media File:</label>
-        <input type="file" id="mediaFile" accept="image/*,video/*" required />
-        
+        <input type="file" id="mediaFile" accept="image/*,video/*" />
+
         <button type="submit">Send Media File</button>
     </form>
 
@@ -67,40 +67,50 @@
         const mediaForm = document.getElementById('mediaForm');
         const responseElement = document.getElementById('response');
 
-        // Send text message
+        // Send text messages to multiple numbers
         textMessageForm.addEventListener('submit', async (event) => {
             event.preventDefault();
 
-            const number = document.getElementById('textNumber').value.trim();
+            const numbers = document.getElementById('textNumbers').value.trim().split(',').map(num => num.trim());
             const message = document.getElementById('textMessage').value.trim();
+
+            if (!numbers.length || !message) {
+                responseElement.textContent = 'Please enter numbers and a message.';
+                return;
+            }
 
             try {
                 const response = await fetch('/api/send-message', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ number, message }),
+                    body: JSON.stringify({ numbers, message }),
                 });
 
                 const data = await response.json();
                 responseElement.textContent = data.success
-                    ? 'Text message sent successfully!'
+                    ? 'Text messages sent successfully!'
                     : `Error: ${data.error}`;
             } catch (error) {
-                console.error('Error sending text message:', error);
-                responseElement.textContent = 'Failed to send text message.';
+                console.error('Error sending text messages:', error);
+                responseElement.textContent = 'Failed to send text messages.';
             }
         });
 
-        // Send media file
+        // Send media file to multiple numbers
         mediaForm.addEventListener('submit', async (event) => {
             event.preventDefault();
 
-            const number = document.getElementById('mediaNumber').value.trim();
+            const numbers = document.getElementById('mediaNumbers').value.trim().split(',').map(num => num.trim());
             const caption = document.getElementById('mediaCaption').value.trim();
             const fileInput = document.getElementById('mediaFile').files[0];
 
+            if (!fileInput) {
+                responseElement.textContent = 'Please select a media file.';
+                return;
+            }
+
             const formData = new FormData();
-            formData.append('number', number);
+            numbers.forEach(number => formData.append('numbers[]', number)); // Append each number separately
             formData.append('caption', caption);
             formData.append('file', fileInput);
 

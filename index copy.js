@@ -4,12 +4,6 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 
-const axios = require('axios'); // To download files
-
-
-const { v4: uuidv4 } = require('uuid');
-
-
 const app = express();
 app.use(express.json());
 
@@ -126,80 +120,6 @@ app.post('/api/send-media', upload.single('file'), async (req, res) => {
 
     res.status(200).json({ success: true, results });
 });
-
-
-
-
-
-
-
-
-app.get('/api/send-media', async (req, res) => {
-    const { receiverMobileNo, filePathUrl, caption } = req.query;
-
-    if (!client) {
-        return res.status(503).json({ success: false, error: 'WhatsApp client is not ready yet.' });
-    }
-
-    if (!receiverMobileNo || !filePathUrl) {
-        return res.status(400).json({ success: false, error: 'ReceiverMobileNo and FilePathUrl are required.' });
-    }
-
-    const numbers = Array.isArray(receiverMobileNo) ? receiverMobileNo : [receiverMobileNo];
-    const fileUrls = Array.isArray(filePathUrl) ? filePathUrl : [filePathUrl];
-    const results = [];
-    const tempDir = path.join(__dirname, 'temp');
-
-    // Ensure the temp directory exists
-    if (!fs.existsSync(tempDir)) {
-        fs.mkdirSync(tempDir, { recursive: true });
-    }
-
-    for (let i = 0; i < numbers.length; i++) {
-        const number = numbers[i];
-        const fileUrl = fileUrls[i];
-        const fileCaption = caption || '';
-
-        try {
-            // Download the file
-            const response = await axios.get(fileUrl, { responseType: 'stream' });
-            const ext = path.extname(fileUrl);
-            const tempFilePath = path.join(tempDir, `${uuidv4()}${ext}`);
-
-            // Save the file
-            const writer = fs.createWriteStream(tempFilePath);
-            response.data.pipe(writer);
-
-            await new Promise((resolve, reject) => {
-                writer.on('finish', resolve);
-                writer.on('error', reject);
-            });
-
-            console.log('📂 Downloaded file path:', tempFilePath);
-
-            // Send the file via WhatsApp
-            const chatId = `${number.replace(/\D/g, '')}@c.us`;
-            await client.sendFile(chatId, tempFilePath, path.basename(tempFilePath), fileCaption);
-            results.push({ number, status: "✅ Media sent successfully" });
-
-            // Delete the temporary file after sending
-            fs.unlink(tempFilePath, (err) => {
-                if (err) console.error('❌ Error deleting temp file:', err);
-                else console.log(`✅ Deleted temp file: ${tempFilePath}`);
-            });
-        } catch (error) {
-            console.error(`❌ Error sending media to ${number}:`, error);
-            results.push({ number, status: "❌ Failed to send media", error: error.message });
-        }
-    }
-
-    res.status(200).json({ success: true, results });
-});
-
-
-
-
-
 
 // Start the Express server
 const PORT = 3000;
