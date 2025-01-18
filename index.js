@@ -3,6 +3,7 @@ const venom = require('venom-bot');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const cheerio = require('cheerio');
 
 const axios = require('axios'); // To download files
 
@@ -86,6 +87,70 @@ app.post('/api/send-message', async (req, res) => {
 
     res.status(200).json({ success: true, results });
 });
+
+
+
+
+
+
+
+// code by ankit start
+app.get('/api/send-message', async (req, res) => {
+    const { numbers, message, link } = req.query; // Receive numbers (comma-separated), message, and link as query parameters
+
+    if (!client) {
+        return res.status(503).json({ success: false, error: 'WhatsApp client is not ready yet.' });
+    }
+
+    if (!numbers || !message) {
+        return res.status(400).json({ success: false, error: 'Numbers (comma-separated) and message are required.' });
+    }
+
+    const numberList = numbers.split(',').map((num) => num.trim());
+    const results = [];
+
+    let linkPreview = '';
+
+    if (link) {
+        try {
+            const response = await axios.get(link);
+            const $ = cheerio.load(response.data);
+
+            // Extract metadata for link preview
+            const title = $('meta[property="og:title"]').attr('content') || $('title').text();
+            const description = $('meta[property="og:description"]').attr('content') || $('meta[name="description"]').attr('content');
+            const image = $('meta[property="og:image"]').attr('content');
+            linkPreview = `${title || ''}\n${description || ''}\n${image || ''}`;
+        } catch (error) {
+            console.error('❌ Error fetching link metadata:', error.message);
+            linkPreview = '⚠️ Could not retrieve link preview.';
+        }
+    }
+
+    for (const number of numberList) {
+        try {
+            const chatId = `${number.replace(/\D/g, '')}@c.us`; // Ensure proper number format
+            const fullMessage = `${message}\n\n${linkPreview || ''}`; // Include metadata preview if available
+            await client.sendText(chatId, fullMessage);
+            results.push({ number, status: "✅ Sent successfully" });
+        } catch (error) {
+            console.error(`❌ Error sending to ${number}:`, error);
+            results.push({ number, status: "❌ Failed to send", error: error.message });
+        }
+    }
+
+    res.status(200).json({ success: true, results });
+});
+
+
+// code by ankit end
+
+
+
+
+
+
+
 
 // API to send media (including videos)
 app.post('/api/send-media', upload.single('file'), async (req, res) => {
