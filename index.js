@@ -132,7 +132,7 @@ app.get('/api/send-message', async (req, res) => {
             const chatId = `${number.replace(/\D/g, '')}@c.us`; // Ensure proper number format
             const fullMessage = `${message}\n\n${linkPreview || ''}`; // Include metadata preview if available
             await client.sendText(chatId, fullMessage);
-            results.push({ number, status: "✅ Sent successfully" });
+            results.push({ number, status: "✅ Sent successfully",message:"success" });
         } catch (error) {
             console.error(`❌ Error sending to ${number}:`, error);
             results.push({ number, status: "❌ Failed to send", error: error.message });
@@ -153,7 +153,7 @@ app.get('/api/send-message', async (req, res) => {
 
 
 // API to send media (including videos)
-app.post('/api/send-media', upload.single('file'), async (req, res) => {
+app.post('/api/send-media-old', upload.single('file'), async (req, res) => {
     const { numbers, caption } = req.body; // Accept multiple numbers
     const filePath = req.file?.path;
 
@@ -171,8 +171,9 @@ app.post('/api/send-media', upload.single('file'), async (req, res) => {
 
     for (const number of numbers) {
         try {
+            var newcaption = decodeURIComponent(caption);
             const chatId = `${number.replace(/\D/g, '')}@c.us`; // Ensure proper number format
-            await client.sendFile(chatId, filePath, req.file.originalname, caption || '');
+            await client.sendFile(chatId, filePath, req.file.originalname, newcaption || '');
             results.push({ number, status: "✅ Media sent successfully" });
         } catch (error) {
             console.error(`❌ Error sending media to ${number}:`, error);
@@ -191,6 +192,66 @@ app.post('/api/send-media', upload.single('file'), async (req, res) => {
 
     res.status(200).json({ success: true, results });
 });
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// code by ankit start
+app.post('/api/send-media', upload.single('file'), async (req, res) => {
+    const { numbers, caption } = req.body; // Accept multiple numbers
+    const filePath = req.file?.path;
+
+    if (!client) {
+        return res.status(503).json({ success: false, error: 'WhatsApp client is not ready yet.' });
+    }
+
+    if (!numbers || !Array.isArray(numbers) || numbers.length === 0 || !filePath) {
+        return res.status(400).json({ success: false, error: 'Numbers (array) and file are required.' });
+    }
+
+    console.log('📂 Uploaded file path:', filePath);
+
+    const results = [];
+
+    for (const number of numbers) {
+        try {
+            // Ensure caption is decoded correctly
+            const formattedCaption = caption ? decodeURIComponent(caption) : '';
+            const chatId = `${number.replace(/\D/g, '')}@c.us`; // Ensure proper number format
+
+            // Send media file with the formatted caption
+            await client.sendFile(chatId, filePath, req.file.originalname, formattedCaption);
+
+            results.push({ number, status: "✅ Media sent successfully" });
+        } catch (error) {
+            console.error(`❌ Error sending media to ${number}:`, error);
+            results.push({ number, status: "❌ Failed to send media" });
+        }
+    }
+
+    // Delete uploaded file after processing
+    fs.unlink(filePath, (err) => {
+        if (err) {
+            console.error('❌ Error deleting uploaded file:', err);
+        } else {
+            console.log(`✅ Deleted file: ${filePath}`);
+        }
+    });
+
+    res.status(200).json({ success: true, results });
+});
+// code by ankit end
 
 
 
